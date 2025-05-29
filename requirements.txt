@@ -1,0 +1,10 @@
+asgiref==3.8.1
+Django==5.2.1
+dotenv==0.9.9
+mysqlclient==2.2.7
+password-validator==1.0
+python-dotenv==1.1.0
+six==1.17.0
+sqlparse==0.5.3
+tzdata==2025.2
+validate_email==1.3
