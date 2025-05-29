@@ -1,6 +1,6 @@
 from password_validator import PasswordValidator
 
-from django.shortcuts import render
+from django.shortcuts import render, redirect
 from django.views.generic import View
 from django.contrib import messages
 from django.contrib.auth.models import User
@@ -10,6 +10,10 @@ from django.utils.encoding import force_bytes, force_str
 from django.utils.http import urlsafe_base64_encode, urlsafe_base64_decode
 from django.contrib.sites.shortcuts import get_current_site
 from django.core.mail import EmailMessage
+
+from django.http import HttpResponse
+
+from .utils import token_generator
 
 class SignUpView(View):
     def get(self, request):
@@ -56,18 +60,21 @@ class SignUpView(View):
 
                     uidb64 = urlsafe_base64_encode(force_bytes(user.pk))
                     domain = get_current_site(request).domain
-                    link = reverse('activate', kwargs={'uidb64': uidb64, 'token': token_generator.make_token(user)})
+                    
+                    link = reverse('verify', kwargs={'uidb64': uidb64, 'token': token_generator.make_token(user)})
                     activation_url = 'http://'+ domain + link
 
                     SUBJECT = 'Grocer Activation Link'
-                    BODY = f'Hi {user.username}\n. Please use this link {activation_url} to activate your account'
-                    email = EmailMessage(
+                    BODY = f'Hi {username}\n. Please use this link {activation_url} to activate your account'
+                    mail = EmailMessage(
                         SUBJECT,
                         BODY,
                         'abdulrahmanibrahim.ish@gmail.com',
                         [user.email],
                     )
-                    email.send(fail_silently=True)
+                    mail.send(fail_silently=True)
+
+                    messages.success(request, 'Account created. Check your email for verification!')
 
                 else:
                     messages.error(request, 'Invalid Password!')
@@ -86,3 +93,24 @@ class SignUpView(View):
 class LoginView(View):
     def get(self, request):
         return render(request, 'authentication/login.html')
+    
+    def post(self, request):
+        pass
+
+
+class VerificationView(View):
+    def get(self, request, uidb64, token):
+        id = force_str(urlsafe_base64_decode(uidb64))
+        user = User.objects.get(pk=id)
+        
+        if not token_generator.check_token(user, token):
+            return HttpResponse('<h1>Activation Link Expired</h1>')
+        
+        if user.is_active:
+            return redirect(reverse('login'))
+        
+        user.is_active = True
+        user.save()
+
+        messages.success(request, 'Account activated succesfully!')
+        return redirect(reverse('login'))
